@@ -24,5 +24,7 @@ hs_err_pid*
 #Model Files
 training_scripts/TFRecords
 training_scripts/Model
-1M_iters_ckpt
-Inception_V3
+1M_iters_ckpt/
+Inception_V3/
+models/
+training_scripts/Inception_V3/
