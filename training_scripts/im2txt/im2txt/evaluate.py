@@ -89,7 +89,7 @@ def run():
   # Create the summary operation and the summary writer.
 
   # summary_op = tf.summary.merge_all()
-  summary_writer = tf.summary.FileWriter(FLAGS.eval_dir)
+  # summary_writer = tf.summary.FileWriter(FLAGS.eval_dir)
   # Run a new evaluation run every eval_interval_secs.
   while True:
   	start = time.time()
@@ -100,6 +100,10 @@ def run():
         		
 		vocab = vocabulary.Vocabulary(FLAGS.vocab_file)
     	        generator = caption_generator.CaptionGenerator(model, vocab, beam_size=1)
+                file_count = 0
+                sum_bleu = 0.
+                score_summary = 0.
+
         	for filename in os.listdir(FLAGS.image_feed_dir):
 			with tf.gfile.GFile(os.path.join(FLAGS.image_feed_dir, filename), "rb") as f:
 				print(filename)
@@ -117,13 +121,17 @@ def run():
 			bleu_s = bleu_scorer.BleuScorer(test, refs, n=3)
 			score, lst = bleu_s.compute_score(option="average")
 			print(score[0])
-                        score_summary = score[0]
-                        
+                        sum_bleu += score[0]
+                        file_count += 1
                         # global_step = tf.train.global_step(sess, model.global_step.name)
                         # global_step = tf.train.global_step(sess, "global_step")
-                        # summary = tf.Summary(value=[tf.Summary.Value(tag="BLEU Score", simple_value=score_summary)])
-                        # summary_writer.add_summary(summary, 0)
-                        # summary_writer.flush()
+                score_summary = sum_bleu/file_count
+                print("Average of BLEU Scores: %d",score_summary)
+                summary = tf.Summary(value=[tf.Summary.Value(tag="BLEU Score", simple_value=score_summary)])
+                summary_writer = tf.summary.FileWriter(FLAGS.eval_dir, graph=g)
+                summary_writer.add_graph(g)
+                summary_writer.add_summary(summary)
+                summary_writer.flush()
 	time_to_next_eval = start + FLAGS.eval_interval_secs - time.time()
         if time_to_next_eval > 0:
             time.sleep(time_to_next_eval)
