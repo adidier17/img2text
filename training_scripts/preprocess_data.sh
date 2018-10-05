@@ -1,5 +1,5 @@
 #!/bin/bash
-WORK_SPACE="${pwd}"
+WORK_SPACE="$(pwd)"
 BASE_PATH="/Users/akdidier/Documents/Maars/compare_to_tanvir"
 TRAIN_IMAGES="${BASE_PATH}/train"
 TRAIN_CAPTIONS="${BASE_PATH}/captions/train.txt"

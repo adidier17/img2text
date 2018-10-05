@@ -112,7 +112,8 @@ class BleuScorer(object):
         if refs is not None:
             self.crefs.append(cook_refs(refs))
             if test is not None:
-                cooked_test = cook_test(test, self.crefs[-1])
+                reflen, refmaxcounts = self.crefs[-1]
+                cooked_test = cook_test(test, reflen, refmaxcounts)
                 self.ctest.append(cooked_test) ## N.B.: -1
             else:
                 self.ctest.append(None) # lens of crefs and ctest have to match

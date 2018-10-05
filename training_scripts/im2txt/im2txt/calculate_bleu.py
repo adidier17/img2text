@@ -18,6 +18,7 @@ import tensorflow as tf
 
 from im2txt import configuration
 from im2txt import show_and_tell_model
+from im2txt import inference_wrapper
 # import configuration
 # import show_and_tell_model
 from im2txt.inference_utils import caption_generator
@@ -53,7 +54,7 @@ def caption_image(image, model, sess, vocab):
     caption = [vocab.id_to_word(w) for w in best_caption.sentence[1:-1]]
     return " ".join(caption)
 
-def evaluate_model(sess, model, global_step, summary_writer, summary_op, vocab):
+def evaluate_model(sess, model, graph, vocab):
     """Computes BLEU score on the test images then computes an average bleu.
 
     Summaries and perplexity-per-word are written out to the eval directory.
@@ -66,8 +67,8 @@ def evaluate_model(sess, model, global_step, summary_writer, summary_op, vocab):
     summary_op: Op for generating model summaries.
     """
     # Log model summaries on a single batch.
-    summary_str = sess.run(summary_op)
-    summary_writer.add_summary(summary_str, global_step)
+    # summary_str = sess.run(summary_op)
+    # summary_writer.add_summary(summary_str, global_step)
 
     start_time = time.time()
     sum_bleu = 0.
@@ -81,33 +82,34 @@ def evaluate_model(sess, model, global_step, summary_writer, summary_op, vocab):
         with tf.gfile.GFile(image_path, "rb") as f:
             image = f.read()
         test_caption = caption_image(image, model, sess, vocab)
-        scorer = BleuScorer(test_caption, [cap])
-        bleu_score, bleu_list = scorer.compute_score()
-        sum_bleu += bleu_score
+        scorer = BleuScorer(test_caption, cap)
+        bleu_score, bleu_list = scorer.compute_score(option="average")
+        sum_bleu += sum(bleu_score)/len(bleu_score)
         count += 1
     bleu_avg = sum_bleu/count
 
-
-
-    tf.logging.info("Computed bleu score at global step %d.", global_step)
     eval_time = time.time() - start_time
 
     tf.logging.info("BLEU = %f (%.2g sec)", bleu_avg, eval_time)
 
-    # Log perplexity to the FileWriter.
+    # Log BLEU score
     summary = tf.Summary()
     value = summary.value.add()
     value.simple_value = bleu_avg
     value.tag = "Bleu Score"
-    summary_writer.add_summary(summary, global_step)
+    summary_writer = tf.summary.FileWriter(FLAGS.eval_dir, graph=graph)
+    summary_writer.add_graph(graph)
+    summary_writer.add_summary(summary)
+    summary_writer.flush()
+    # summary_writer.add_summary(summary, global_step)
 
     # Write the Events file to the eval directory.
-    summary_writer.flush()
-    tf.logging.info("Finished processing evaluation at global step %d.",
-                  global_step)
+    # summary_writer.flush()
+    tf.logging.info("Finished processing evaluation")
+    return bleu_avg
 
 
-def run_once(model, saver, summary_writer, summary_op, vocab):
+def run_once(model, restore_fn, g, vocab):
     """Evaluates the latest model checkpoint.
 
     Args:
@@ -122,74 +124,71 @@ def run_once(model, saver, summary_writer, summary_op, vocab):
                     FLAGS.checkpoint_dir)
         return
 
-    with tf.Session() as sess:
+    with tf.Session(graph=g) as sess:
         # Load model from checkpoint.
         tf.logging.info("Loading model from checkpoint: %s", model_path)
-        saver.restore(sess, model_path)
-        global_step = tf.train.global_step(sess, model.global_step.name)
-        tf.logging.info("Successfully loaded %s at global step = %d.",
-                        os.path.basename(model_path), global_step)
-        if global_step < FLAGS.min_global_step:
-          tf.logging.info("Skipping evaluation. Global step = %d < %d", global_step,
-                          FLAGS.min_global_step)
-          return
+        restore_fn(sess)
+        #saver.restore(sess, model_path)
 
-        # Start the queue runners.
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
 
         # Run evaluation on the latest checkpoint.
-        try:
-          evaluate_model(
-              sess=sess,
-              model=model,
-              global_step=global_step,
-              summary_writer=summary_writer,
-              summary_op=summary_op,
-              vocab=vocab)
-        except Exception as e:  # pylint: disable=broad-except
-          tf.logging.error("Evaluation failed.")
-          coord.request_stop(e)
-
-        coord.request_stop()
-        coord.join(threads, stop_grace_period_secs=10)
-
+        bleu_score = evaluate_model(
+                          sess=sess,
+                          model=model,
+                          graph=g,
+                          vocab=vocab)
+        return bleu_score
 
 def run():
-  """Runs evaluation in a loop, and logs summaries to TensorBoard."""
-  # Create the evaluation directory if it doesn't exist.
-  eval_dir = FLAGS.eval_dir
-  if not tf.gfile.IsDirectory(eval_dir):
-    tf.logging.info("Creating eval directory: %s", eval_dir)
-    tf.gfile.MakeDirs(eval_dir)
+    """Runs evaluation in a loop, and logs summaries to TensorBoard."""
+    # Create the evaluation directory if it doesn't exist.
+    eval_dir = FLAGS.eval_dir
+    if not tf.gfile.IsDirectory(eval_dir):
+        tf.logging.info("Creating eval directory: %s", eval_dir)
+        tf.gfile.MakeDirs(eval_dir)
 
-  g = tf.Graph()
-  with g.as_default():
-    # Build the model for evaluation.
-    model_config = configuration.ModelConfig()
-    model = show_and_tell_model.ShowAndTellModel(model_config, mode="inference")
-    model.build()
 
-    # Create the Saver to restore model Variables.
-    saver = tf.train.Saver()
-
-    # Create the summary operation and the summary writer.
-    summary_op = tf.summary.merge_all()
-    summary_writer = tf.summary.FileWriter(eval_dir)
-
-    g.finalize()
 
     vocab = vocabulary.Vocabulary(FLAGS.vocab_file)
     #Run a new evaluation run every eval_interval_secs.
+    out = "scores.json"
+    with open(out, "w") as f:
+        f.write("[\n")
     while True:
-      start = time.time()
-      tf.logging.info("Starting evaluation at " + time.strftime(
+        start = time.time()
+        tf.logging.info("Starting evaluation at " + time.strftime(
           "%Y-%m-%d-%H:%M:%S", time.localtime()))
-      run_once(model, saver, summary_writer, summary_op, vocab)
-      time_to_next_eval = start + FLAGS.eval_interval_secs - time.time()
-      if time_to_next_eval > 0:
-        time.sleep(time_to_next_eval)
 
+        model_path = tf.train.latest_checkpoint(FLAGS.checkpoint_dir)
+        print("Model path ", model_path)
+        if not model_path:
+            tf.logging.info("Skipping evaluation. No checkpoint found in: %s",
+                            FLAGS.checkpoint_dir)
+            time_to_next_eval = start + FLAGS.eval_interval_secs - time.time()
+            if time_to_next_eval > 0:
+                time.sleep(time_to_next_eval)
+            return
+
+        step = model_path.split("-")[-1]
+        g = tf.Graph()
+        with g.as_default():
+            # Build the model for evaluation.
+            model_config = configuration.ModelConfig()
+            model = inference_wrapper.InferenceWrapper()
+            #
+            restore_fn = model.build_graph_from_config(model_config, model_path)
+
+        g.finalize()
+        score = run_once(model, restore_fn, g, vocab)
+        dat = {"step": step, "score": score}
+        with open(out, "a") as f:
+            json.dump(dat, f)
+            f.write(",\n")
+        time_to_next_eval = start + FLAGS.eval_interval_secs - time.time()
+        if time_to_next_eval > 0:
+            time.sleep(time_to_next_eval)
+    with open(out, "a") as f:
+        f.write("]")
 
 def main(unused_argv):
     assert FLAGS.test_images_dir, "--test_images_dir is required"

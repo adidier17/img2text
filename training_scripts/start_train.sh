@@ -1,10 +1,12 @@
 #!/bin/bash
 # Workspace
-WORK_SPACE="$(pwd)/WORK_SPACE"
+WORK_SPACE="$(pwd)"
 TR_RECORD_DIR="${WORK_SPACE}/TFRecords"
 
 # Inception v3 checkpoint file.
 INCEPTION_CHECKPOINT="${WORK_SPACE}/Inception_V3/inception_v3.ckpt"
+#try using the 1M iters checkpoint file
+#INCEPTION_CHECKPOINT="${WORK_SPACE}/1M_iters_ckpt/model.ckpt-1000000.data-00000-of-00001"
 
 # Directory to save the model.
 MODEL_DIR="${WORK_SPACE}/Model"

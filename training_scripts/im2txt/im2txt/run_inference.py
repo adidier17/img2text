@@ -28,6 +28,7 @@ from im2txt import configuration
 from im2txt import inference_wrapper
 from im2txt.inference_utils import caption_generator
 from im2txt.inference_utils import vocabulary
+import json
 
 FLAGS = tf.flags.FLAGS
 
@@ -35,9 +36,10 @@ tf.flags.DEFINE_string("checkpoint_path", "",
                        "Model checkpoint file or directory containing a "
                        "model checkpoint file.")
 tf.flags.DEFINE_string("vocab_file", "", "Text file containing the vocabulary.")
-tf.flags.DEFINE_string("input_files", "",
+tf.flags.DEFINE_string("input_directory", "",
                        "File pattern or comma-separated list of file patterns "
                        "of image files.")
+tf.flags.DEFINE_string("captions_path", "", "path for caption output.")
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -54,11 +56,12 @@ def main(_):
   # Create the vocabulary.
   vocab = vocabulary.Vocabulary(FLAGS.vocab_file)
 
-  filenames = []
-  for file_pattern in FLAGS.input_files.split(","):
-    filenames.extend(tf.gfile.Glob(file_pattern))
-  tf.logging.info("Running caption generation on %d files matching %s",
-                  len(filenames), FLAGS.input_files)
+  # filenames = []
+  # for file_pattern in FLAGS.input_files.split(","):
+  #   filenames.extend(tf.gfile.Glob(file_pattern))
+  # tf.logging.info("Running caption generation on %d files matching %s",
+  #                 len(filenames), FLAGS.input_files)
+
 
   with tf.Session(graph=g) as sess:
     # Load the model from checkpoint.
@@ -68,18 +71,23 @@ def main(_):
     # beam search parameters. See caption_generator.py for a description of the
     # available beam search parameters.
     generator = caption_generator.CaptionGenerator(model, vocab)
-
-    for filename in filenames:
-      with tf.gfile.GFile(filename, "rb") as f:
+    all_captions = {}
+    for filename in os.listdir(FLAGS.input_directory):
+      with tf.gfile.GFile(os.path.join(FLAGS.input_directory, filename), "rb") as f:
         image = f.read()
       captions = generator.beam_search(sess, image)
+      all_captions[filename] = {"captions":[], "logprob":[]}
       print("Captions for image %s:" % os.path.basename(filename))
       for i, caption in enumerate(captions):
         # Ignore begin and end words.
         sentence = [vocab.id_to_word(w) for w in caption.sentence[1:-1]]
         sentence = " ".join(sentence)
+        all_captions[filename]["captions"].append(sentence)
+        all_captions[filename]["logprob"].append(caption.logprob)
         print("  %d) %s (p=%f)" % (i, sentence, math.exp(caption.logprob)))
 
+  with open(FLAGS.captions_path, "w") as f:
+    json.dump(all_captions,f)
 
 if __name__ == "__main__":
   tf.app.run()

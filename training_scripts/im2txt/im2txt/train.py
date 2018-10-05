@@ -102,7 +102,7 @@ def main(unused_argv):
   tf.contrib.slim.learning.train(
       train_op,
       train_dir,
-      #log_every_n_steps=FLAGS.log_every_n_steps,
+      log_every_n_steps=FLAGS.log_every_n_steps,
       save_summaries_secs=180,
       save_interval_secs=180,
       graph=g,

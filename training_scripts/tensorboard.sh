@@ -1,7 +1,7 @@
 #!/bin/bash
 # Workspace
-WORK_SPACE=${1}
-MODEL_DIR="${1}/Model"
+WORK_SPACE=$(pwd)
+MODEL_DIR="${WORK_SPACE}/Model"
 
 cd im2txt
 # Run a TensorBoard server.
