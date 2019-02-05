@@ -1,12 +1,12 @@
 #!/bin/bash
 WORK_SPACE="$(pwd)"
-BASE_PATH="/Users/akdidier/Documents/Maars/compare_to_tanvir"
+BASE_PATH="/Users/akdidier/Documents/Maars/compare_to_tanvir/vivian_reannot"
 TRAIN_IMAGES="${BASE_PATH}/train"
-TRAIN_CAPTIONS="${BASE_PATH}/captions/train.txt"
+TRAIN_CAPTIONS="${BASE_PATH}/captions/train.json"
 TEST_IMAGES="${BASE_PATH}/test"
-TEST_CAPTIONS="${BASE_PATH}/captions/test.txt"
+TEST_CAPTIONS="${BASE_PATH}/captions/test.json"
 TF_RECORDS_OUTPUT_DIR="TFRecords"
-PROCESSED_CAPTIONS_DIR="${WORK_SPACE}/processed_captions"
+PROCESSED_CAPTIONS_DIR="${BASE_PATH}/captions"
 
 mkdir -p ${PROCESSED_CAPTIONS_DIR}
 mkdir -p ${TF_RECORDS_OUTPUT_DIR}

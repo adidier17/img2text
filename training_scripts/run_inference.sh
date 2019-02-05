@@ -10,9 +10,12 @@ INPUT_DIRECTORY="$1"
 
 OUTPUT_PATH="$2"
 
+#number of captions to generate
+BEAM_SIZE="$3"
+
 # Ignore GPU devices (only necessary if your GPU is currently memory
 # constrained, for example, by running the training script).
-export CUDA_VISIBLE_DEVICES=""
+#export CUDA_VISIBLE_DEVICES=""
 
 # Run inference to generate captions.
 cd im2txt
@@ -20,4 +23,5 @@ bazel-bin/im2txt/run_inference \
   --checkpoint_path=${CHECKPOINT_PATH} \
   --vocab_file=${VOCAB_FILE} \
   --input_directory=${INPUT_DIRECTORY} \
-  --captions_path=${OUTPUT_PATH}
+  --captions_path=${OUTPUT_PATH} \
+  --beam_size=${BEAM_SIZE}

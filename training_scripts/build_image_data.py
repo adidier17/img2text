@@ -317,12 +317,17 @@ def _load_and_process_metadata(captions_file, image_dir):
     with tf.gfile.FastGFile(captions_file, "r") as f:
         caption_data = json.load(f)
 
+    # print("caption data looks like")
+    # print(caption_data["annotations"])
     # Extract the filenames.
     id_to_filename = [(x["id"], x["file_name"]) for x in caption_data["images"]]
 
     # Extract the captions. Each image_id is associated with multiple captions.
     id_to_captions = {}
     for annotation in caption_data["annotations"]:
+        # sys.stdout.write("annotations looks like:")
+        # print(annotation)
+        #exit()
         image_id = annotation["image_id"]
         caption = annotation["caption"]
         id_to_captions.setdefault(image_id, [])
@@ -409,16 +414,22 @@ def _generate_annotations():
             json.dump(data_set, data_set_file)
         print('ANNOTATIONS SUCCESSFULLY GENERATED')
 
-    train_captions = _load_caption_dict(FLAGS.train_captions)
+    # train_captions = _load_caption_dict(FLAGS.train_captions)
+    # _write_to_json(train_captions, FLAGS.train_image_dir, FLAGS.train_processed_captions)
+    # test_captions = _load_caption_dict(FLAGS.test_captions)
+    # _write_to_json(test_captions, FLAGS.test_image_dir, FLAGS.test_processed_captions)
+
+    with open(FLAGS.train_captions, "r") as f:
+        train_captions = json.load(f)
+
+    with open(FLAGS.test_captions, "r") as f:
+        test_captions = json.load(f)
+
     _write_to_json(train_captions, FLAGS.train_image_dir, FLAGS.train_processed_captions)
-    test_captions = _load_caption_dict(FLAGS.test_captions)
     _write_to_json(test_captions, FLAGS.test_image_dir, FLAGS.test_processed_captions)
 
-
-
-
 def main(unused_argv):
-    _generate_annotations()
+    # _generate_annotations()
 
     def _is_valid_num_shards(num_shards):
         """Returns True if num_shards is compatible with FLAGS.num_threads."""
